@@ -23,7 +23,7 @@ public:
 
     ~redis_api();
 
-    int set(std::string key, std::string value);
+    std::string set(std::string key, std::string value);
     std::string get(std::string key);
     void show_map(std::ostream&);
 

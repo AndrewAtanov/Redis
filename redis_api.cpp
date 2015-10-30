@@ -24,12 +24,12 @@ redis_api::~redis_api() {
     change_log.close();
 }
 
-int redis_api::set(std::string key, std::string value) {
+std::string redis_api::set(std::string key, std::string value) {
     data[key] = value;
     change_map.insert({key, value});
     upd_change_log();
 
-    return 0;
+    return "OK";
 }
 
 std::string redis_api::get(std::string key) {

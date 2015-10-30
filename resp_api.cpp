@@ -3,6 +3,11 @@
 #include <sys/socket.h>
 #include <cstring>
 
+bool string_to_req(std::string& str, std::string& req) {
+    req = "$" + std::to_string(str.size()) + "\r\n" + str + "\r\n";
+    return true;
+}
+
 void arr_to_str(std::vector<std::string>& arr, std::string& str) {
     str = "*" + std::to_string(arr.size()) + "\r\n";
     for (auto el: arr)
@@ -12,10 +17,10 @@ void arr_to_str(std::vector<std::string>& arr, std::string& str) {
 int str_to_arr(std::string& str, std::vector<std::string>& arr) {
     size_t ind;
     int size = std::stoll(str.c_str() + 1, &ind);
-    ind += 2;
+    ind += 3;
     for (int i = 0; i < size; ++i) {
         std::string el;
-        ind = req_to_string(str.c_str() + ind, el);
+        ind += req_to_string(str.c_str() + ind, el);
         arr.push_back(el);
     }
     return ind;
@@ -24,10 +29,11 @@ int str_to_arr(std::string& str, std::vector<std::string>& arr) {
 int req_to_string(const char* req, std::string& ans) {
     size_t ind;
     int size = std::stoll(req + 1, &ind);
-    ind += 2;
+    ind += 3;
     char buff[size];
     std::strncpy(buff, req + ind, size);
     ans = buff;
+    ans.resize(size);
     return ind + size + 2;
 }
 
@@ -45,7 +51,7 @@ bool full_req_write(int sd, std::string& str) {
 }
 
 bool readnbytes(int sd, int n, char* buff) {
-    int rs = recv(sd, buff, n - rs, 0);
+    int rs = recv(sd, buff, n, 0);
     if (rs <= 0)
         return false;
     while (rs != n)
@@ -53,17 +59,33 @@ bool readnbytes(int sd, int n, char* buff) {
     return true;
 }
 
-bool get_param(int sd, std::pair<char, int>& ans) {
-    char* buff = new char[7];
-    if (!readnbytes(sd, 7, buff))
+bool get_type(int sd, char* buff) {
+    return readnbytes(sd, 1, buff);
+}
+
+bool get_size(int sd, char* buff) {
+    int size = 0;
+    do {
+        if (!readnbytes(sd, 1, buff + size++))
+            return false;
+    } while (*(buff + size - 2) != '\r' || *(buff + size - 1) != '\n');
+    return true;
+}
+
+bool get_param(int sd, std::pair<char, long long>& ans) {
+    size_t len = 1;
+    char* buff = new char[1024];
+    if (!get_type(sd, buff))
         return false;
-    ans = std::pair<char, int>{buff[0], *reinterpret_cast<int *>(buff + 1)};
+    if (!get_size(sd, buff + 1))
+        return false;
+    ans = std::pair<char, size_t>{buff[0], std::stoull(buff + 1)};
     return true;
 }
 
 bool get_arr(int sd, std::string& ans, int n) {
     for (int i = 0; i < n; ++i) {
-        std::pair<char, int> param;
+        std::pair<char, long long> param;
         get_param(sd, param);
         ans.push_back(param.first);
         ans += std::to_string(param.second) + "\r\n";
@@ -73,25 +95,27 @@ bool get_arr(int sd, std::string& ans, int n) {
 }
 
 bool get_string(int sd, std::string& ans, int n) {
-    char *buff = new char[n + 2];
+    char *buff = new char[n + 3];
+    buff[n + 2] = '\0';
     readnbytes(sd, n + 2, buff);
-    ans += std::string(buff);
+    std::string str = std::string(buff);
+    str.resize(n + 2);
+    ans += str;
     delete[] buff;
 }
 
 bool full_req_read(int sd, std::string &req) {
-    std::pair<char, int> param;
+    std::pair<char, long long> param;
     if (!get_param(sd, param))
         return false;
 
-    std::string ans;
-    ans.push_back(param.first);
-    ans += std::to_string(param.second);
+    req.push_back(param.first);
+    req += std::to_string(param.second) + "\r\n";
 
     if (param.first == '*')
-        get_arr(sd, ans, param.second);
+        get_arr(sd, req, param.second);
     else if (param.first == '$')
-        get_string(sd, ans, param.second);
+        get_string(sd, req, param.second);
     else
         return false;
 

@@ -13,7 +13,7 @@ bool get_string(int sd, std::string& ans, int n);
 bool get_arr(int sd, std::string& ans, int n);
 bool readnbytes(int sd, int n, char* buff);
 int req_to_string(const char* req, std::string& ans);
-
+bool string_to_req(std::string& str, std::string& req);
 
 
 #endif // RESP_API_H
