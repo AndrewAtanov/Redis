@@ -2,6 +2,7 @@
 #define REDIS_SERVER_H
 
 #include "redis_api.h"
+#include "resp_api.h"
 
 #include <iostream>
 #include <sstream>
@@ -15,8 +16,8 @@ class Redis_server {
 private:
     int listener;
     redis_api *redis;
-    bool full_req_read(int sd, std::string& req);
-    bool full_req_write(int sd, std::string& req);
+//    bool full_req_read(int sd, std::string& req);
+//    bool full_req_write(int sd, std::string& req);
 public:
     Redis_server(int port, redis_api *_r);
     Redis_server();
