@@ -27,7 +27,7 @@ redis_api::~redis_api() {
 std::string redis_api::set(std::string key, std::string value) {
     data[key] = value;
     change_map.insert({key, value});
-    upd_change_log();
+//    upd_change_log();
 
     return "OK";
 }
@@ -41,9 +41,12 @@ std::string redis_api::get(std::string key) {
 }
 
 void redis_api::upd_change_log() {
+    if (change_map.empty())
+        return;
+
     write_map_to(change_map, change_log);
     change_map.clear();
-    }
+}
 
 void redis_api::apply_change_to_log() {
     read_map_from(data, change_log);
@@ -71,4 +74,8 @@ void redis_api::write_map_to(std::unordered_map<std::string, std::string>& map, 
 
 void redis_api::show_map(std::ostream &out) {
     write_map_to(data, out);
+}
+
+void redis_api::save_chng() {
+    upd_change_log();
 }

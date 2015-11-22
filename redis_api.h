@@ -26,6 +26,7 @@ public:
     std::string set(std::string key, std::string value);
     std::string get(std::string key);
     void show_map(std::ostream&);
+    void save_chng();
 
 };
 

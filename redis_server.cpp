@@ -11,6 +11,7 @@ Redis_server::~Redis_server() {
 Redis_server::Redis_server(int port, redis_api* _r) {
     redis = _r;
     listener = socket(AF_INET, SOCK_STREAM, 0);
+    fcntl(listener, F_SETFL, O_NONBLOCK);
 
     struct sockaddr_in addr;
 
@@ -22,36 +23,103 @@ Redis_server::Redis_server(int port, redis_api* _r) {
     listen(listener, 2);
 }
 
-void Redis_server::get_requests() {
-    int sock = accept(listener, nullptr, nullptr);
-    while (1) {
-        std::string str_req;
-        if (!full_req_read(sock, str_req))
-            break;
-        std::vector<std::string> req_arr;
-//        std::cout << str_req << std::endl;
-            str_to_arr(str_req, req_arr);
-        req_arr[0];
-        if (req_arr[0] == "SET") {
-            std::string ans = redis->set(req_arr[1], req_arr[2]);
-            std::string resp;
-            string_to_req(ans, resp);
-            full_req_write(sock, resp);
-        } else if (req_arr[0] == "GET") {
-            std::string ans = redis->get(req_arr[1]);
-            std::string resp;
-            string_to_req(ans, resp);
-            full_req_write(sock, resp);
-        } else if (req_arr[0] == "show") {
-            std::string ans = "NO";
-            std::string resp;
-            string_to_req(ans, resp);
-            full_req_write(sock, resp);
-        } else if (req_arr[0] == "exit") {
-            break;
+void Redis_server::save_chng() {
+    time_t cur_time = time(0);
+    if (cur_time - prev_time >= 2) {
+        redis->save_chng();
+        cur_time = prev_time;
+    }
+}
+
+int Redis_server::get_requests() {
+    save_chng();
+    fd_set read_set;
+    FD_ZERO(&read_set);
+    FD_SET(listener, &read_set);
+
+    timeval timeout;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+
+    int max_fd = listener;
+
+    for (int fd : clients) {
+        FD_SET(fd, &read_set);
+        if (fd > max_fd)
+            max_fd = fd;
+    }
+
+    int result = select(max_fd + 1, &read_set, NULL, NULL, &timeout);
+    if (result <= 0) {
+        return 1;
+    }
+
+
+    if(FD_ISSET(listener, &read_set)) {
+        // Поступил новый запрос на соединение, используем accept
+        int sock = accept(listener, NULL, NULL);
+        if(sock < 0)
+            return 2;
+
+        fcntl(sock, F_SETFL, O_NONBLOCK);
+        clients.insert(sock);
+    }
+
+    for(int sd : clients) {
+        if(FD_ISSET(sd, &read_set)) {
+            // Поступили данные от клиента, читаем их
+            std::string str_req;
+            if (full_req_read(sd, str_req)) {
+                std::string resp = process_request(str_req);
+                if (resp == "exit") {
+                    close(sd);
+                    clients.erase(sd);
+                    continue;
+                }
+                full_req_write(sd, resp);
+            } else {
+                // Соединение разорвано, удаляем сокет из множества
+                close(sd);
+                clients.erase(sd);
+                continue;
+            }
         }
     }
-    close(sock);
+
+//    int sock = accept(listener, nullptr, nullptr);
+//    while (1) {
+//        if (!full_req_read(sock, str_req))
+//            break;
+//        std::string resp = process_request(str_req);
+//        if (resp == "exit")
+//            break;
+//        full_req_write(sock, resp);
+//    }
+//    close(sock);
+
+    return 0;
+}
+
+std::string Redis_server::process_request(std::string &str_req) {
+    std::vector<std::string> req_arr;
+    std::string resp;
+
+    str_to_arr(str_req, req_arr);
+    req_arr[0];
+    if (req_arr[0] == "SET") {
+        std::string ans = redis->set(req_arr[1], req_arr[2]);
+        string_to_req(ans, resp);
+    } else if (req_arr[0] == "GET") {
+        std::string ans = redis->get(req_arr[1]);
+        string_to_req(ans, resp);
+    } else if (req_arr[0] == "show") {
+        std::string ans = "NO";
+        string_to_req(ans, resp);
+    } else if (req_arr[0] == "exit") {
+        resp == "exit";
+    }
+
+    return resp;
 }
 
 //bool Redis_server::full_req_read(int sd, std::string &req) {
