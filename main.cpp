@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     if (argc != 1)
         data = argv[1];
     redis_api redis(data);
-    Redis_server server(3425, &redis);
+    Redis_server server(6379, &redis);
 
     while (1) {
         server.get_requests();

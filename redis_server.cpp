@@ -63,93 +63,84 @@ int Redis_server::get_requests() {
 
         fcntl(sock, F_SETFL, O_NONBLOCK);
         clients.insert(sock);
+        clients_state.insert({sock, Client_State(sock)});
     }
 
     for(int sd : clients) {
-        if(FD_ISSET(sd, &read_set)) {
+        if(FD_ISSET(sd, &read_set) && sd != listener) {
             // Поступили данные от клиента, читаем их
-            std::string str_req;
-            if (full_req_read(sd, str_req)) {
-                std::string resp = process_request(str_req);
+
+            std::vector<std::string> req;
+            Client_State::Result pars_result = clients_state[sd].get_request(req);
+            if (pars_result == Client_State::ERROR)
+                break_connection(sd);
+
+            if (pars_result == Client_State::OK) {
+                std::string resp = process_request(req);
                 if (resp == "exit") {
-                    close(sd);
-                    clients.erase(sd);
+                    break_connection(sd);
+                    continue;
+                }
+                if (resp == "break") {
+                    break_connection(sd);
                     continue;
                 }
                 full_req_write(sd, resp);
-            } else {
-                // Соединение разорвано, удаляем сокет из множества
-                close(sd);
-                clients.erase(sd);
-                continue;
             }
+/*            if (full_req_read(sd, str_req)) {
+//                std::string resp = process_request(str_req);
+//                if (resp == "exit") {
+//                    break_connection(sd);
+//                    continue;
+//                }
+//                if (resp == "break") {
+//                    break_connection(sd);
+//                    continue;
+//                }
+//                full_req_write(sd, resp);
+//            } else {
+//                // Соединение разорвано, удаляем сокет из множества
+//                break_connection(sd);
+//                continue;
+//            }*/
         }
     }
-
-//    int sock = accept(listener, nullptr, nullptr);
-//    while (1) {
-//        if (!full_req_read(sock, str_req))
-//            break;
-//        std::string resp = process_request(str_req);
-//        if (resp == "exit")
-//            break;
-//        full_req_write(sock, resp);
-//    }
-//    close(sock);
-
     return 0;
 }
 
-std::string Redis_server::process_request(std::string &str_req) {
-    std::vector<std::string> req_arr;
-    std::string resp;
+std::string Redis_server::process_request(std::vector<std::string> &req_arr) {
+//    std::vector<std::string> req_arr;
+    std::string resp = "break";
 
-    str_to_arr(str_req, req_arr);
-    req_arr[0];
+//    str_to_arr(str_req, req_arr);
+//    req_arr[0];
     if (req_arr[0] == "SET") {
-        std::string ans = redis->set(req_arr[1], req_arr[2]);
-        string_to_req(ans, resp);
+        if (req_arr.size() == 3) {
+            std::string ans = redis->set(req_arr[1], req_arr[2]);
+            string_to_req(ans, resp);
+        } else if (req_arr.size() == 4) {
+            std::string ans = redis->set(req_arr[1], req_arr[2], std::stoull(req_arr[3]));
+            string_to_req(ans, resp);
+        }
     } else if (req_arr[0] == "GET") {
-        std::string ans = redis->get(req_arr[1]);
-        string_to_req(ans, resp);
+        if (req_arr.size() == 2) {
+            std::string ans = redis->get(req_arr[1]);
+            string_to_req(ans, resp);
+        }
     } else if (req_arr[0] == "show") {
         std::string ans = "NO";
         string_to_req(ans, resp);
     } else if (req_arr[0] == "exit") {
-        resp == "exit";
+        resp = "exit";
+    } else {
+        resp = "break";
     }
 
     return resp;
 }
 
-//bool Redis_server::full_req_read(int sd, std::string &req) {
-//    char* buff = new char[4];
-//    int rd_size = recv(sd, buff, 4, 0);
-//    if (rd_size <= 0)
-//        return false;
-//    while ((rd_size += recv(sd, buff + rd_size, 4 - rd_size, 0)) != 4) {}
-//    int need_size = *reinterpret_cast<int *>(buff);
-//    char *big_buff = new char[need_size];
-//    rd_size = recv(sd, big_buff, need_size, 0);
-//    while (rd_size != need_size) {
-//        rd_size += recv(sd, big_buff + rd_size, need_size - rd_size, 0);
-//    }
-
-//    req = std::string(big_buff);
-//    req = req.substr(0, need_size) + "\0";
-
-//    return true;
-//}
-
-//bool Redis_server::full_req_write(int sd, std::string &req) {
-//    int size = req.size();
-//    int *size_ptr = &size;
-//    const char *buff = reinterpret_cast<const char *>(size_ptr);
-//    int send_size = send(sd, buff, 4, 0);
-//    while ((send_size += send(sd, buff + send_size, 4 - send_size, 0)) != 4) {}
-//    buff = req.c_str();
-//    send_size = send(sd, buff, req.size(), 0);
-//    while ((send_size += send(sd, buff + send_size, req.size() - send_size, 0)) != req.size()) {}
-
-//    return true;
-//}
+void Redis_server::break_connection(int sd) {
+    close(sd);
+    clients.erase(sd);
+    clients_state.erase(sd);
+}

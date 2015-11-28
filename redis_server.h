@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <fcntl.h>
 #include <time.h>
+#include "clientstate.h"
 
 class Redis_server {
 private:
@@ -22,15 +23,15 @@ private:
     int listener;
     redis_api *redis;
     std::set<int> clients;
-//    bool full_req_read(int sd, std::string& req);
-//    bool full_req_write(int sd, std::string& req);
+    std::map<int, Client_State> clients_state;
+    void break_connection(int sd);
 public:
     Redis_server(int port, redis_api *_r);
     Redis_server();
     ~Redis_server();
 
     int get_requests();
-    std::string process_request(std::string& str_req);
+    std::string process_request(std::vector<std::string> &req_arr);
     void save_chng();
 };
 

@@ -27,17 +27,22 @@ redis_api::~redis_api() {
 std::string redis_api::set(std::string key, std::string value) {
     data[key] = value;
     change_map.insert({key, value});
-//    upd_change_log();
+    //    upd_change_log();
 
     return "OK";
 }
 
 std::string redis_api::get(std::string key) {
+    std::string ans = "No such value";
     auto it = data.find(key);
-    if (it != data.end())
-        return data[key];
-    else
-        return "No such value";
+    if (it != data.end()) {
+        if (valid_key(key))
+            ans = data[key];
+        else
+            delete_key(key);
+    }
+
+    return ans;
 }
 
 void redis_api::upd_change_log() {
@@ -50,6 +55,7 @@ void redis_api::upd_change_log() {
 
 void redis_api::apply_change_to_log() {
     read_map_from(data, change_log);
+    apply_deleted();
     std::ofstream tmp_log("tmp_log");
     write_map_to(data, tmp_log);
     std::string comand = "cp tmp_log " + log_name;
@@ -77,5 +83,34 @@ void redis_api::show_map(std::ostream &out) {
 }
 
 void redis_api::save_chng() {
+    apply_deleted();
     upd_change_log();
+}
+
+std::string redis_api::set(std::string key, std::string value, time_t time) {
+    data[key] = value;
+    change_map.insert({key, value});
+
+    key_time[key] = {std::time(0), time};
+
+    return "OK";
+}
+
+bool redis_api::valid_key(std::string key) {
+    if (key_time.find(key) == key_time.end())
+        return true;
+    auto kt = key_time[key];
+    return std::time(0) <= kt.first + kt.second;
+}
+
+void redis_api::delete_key(std::string key) {
+    data.erase(key);
+    key_time.erase(key);
+    change_map.erase(key);
+}
+
+void redis_api::apply_deleted() {
+    for (auto key : deleted) {
+        delete_key(key);
+    }
 }
