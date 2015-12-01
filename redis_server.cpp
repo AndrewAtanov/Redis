@@ -66,54 +66,48 @@ int Redis_server::get_requests() {
         clients_state.insert({sock, Client_State(sock)});
     }
 
+    std::set<int> refused;
     for(int sd : clients) {
         if(FD_ISSET(sd, &read_set) && sd != listener) {
             // Поступили данные от клиента, читаем их
 
             std::vector<std::string> req;
             Client_State::Result pars_result = clients_state[sd].get_request(req);
-            if (pars_result == Client_State::ERROR)
-                break_connection(sd);
+            if (pars_result == Client_State::ERROR) {
+                refused.insert(sd);
+            }
 
             if (pars_result == Client_State::OK) {
                 std::string resp = process_request(req);
                 if (resp == "exit") {
-                    break_connection(sd);
+                    refused.insert(sd);
+
                     continue;
                 }
                 if (resp == "break") {
-                    break_connection(sd);
+                    refused.insert(sd);
+
                     continue;
                 }
                 full_req_write(sd, resp);
             }
-/*            if (full_req_read(sd, str_req)) {
-//                std::string resp = process_request(str_req);
-//                if (resp == "exit") {
-//                    break_connection(sd);
-//                    continue;
-//                }
-//                if (resp == "break") {
-//                    break_connection(sd);
-//                    continue;
-//                }
-//                full_req_write(sd, resp);
-//            } else {
-//                // Соединение разорвано, удаляем сокет из множества
-//                break_connection(sd);
-//                continue;
-//            }*/
+
+            if (pars_result == Client_State::REFUSE) {
+                refused.insert(sd);
+
+            }
         }
     }
+
+    for (int sd : refused) {
+        break_connection(sd);
+    }
+
     return 0;
 }
 
 std::string Redis_server::process_request(std::vector<std::string> &req_arr) {
-//    std::vector<std::string> req_arr;
     std::string resp = "break";
-
-//    str_to_arr(str_req, req_arr);
-//    req_arr[0];
     if (req_arr[0] == "SET") {
         if (req_arr.size() == 3) {
             std::string ans = redis->set(req_arr[1], req_arr[2]);

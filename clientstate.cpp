@@ -169,6 +169,9 @@ void Client_State::read_buf() {
         if (size > 0) {
             for (int i = 0; i < size; ++i)
                 buf.push_back(buff[i]);
+        } else if (size == 0) {
+            state = Refuse;
+            return;
         } else {
             break;
         }
@@ -187,6 +190,8 @@ Client_State::Result Client_State::get_request(std::vector<std::string>& req) {
         return ERROR;
         state = Start;
         break;
+    case Refuse:
+        return REFUSE;
     default:
         return WAIT;
         break;
@@ -223,6 +228,12 @@ void Client_State::parse() {
             return;
             break;
         }
+        if (state == Ok_State)
+            return;
 
     }
+}
+
+bool Client_State::empty() {
+    return buf.empty();
 }

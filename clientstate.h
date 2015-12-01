@@ -11,7 +11,7 @@
 
 
 class Client_State {
-    enum State {Start, Arr, String, String_Length, Arr_Length, Error_State, Ok_State};
+    enum State {Start, Arr, String, String_Length, Arr_Length, Error_State, Ok_State, Refuse};
     typedef void (*SomeFunction)(void);
     typedef std::map<int, boost::function<void(void)>> script_map;
 
@@ -37,7 +37,7 @@ private:
     void Error_State_state( );
     void OK_state();
 public:
-    enum Result {OK, ERROR, WAIT};
+    enum Result {OK, ERROR, WAIT, REFUSE};
     Client_State(int _sd);
     Client_State();
     ~Client_State();
@@ -45,6 +45,7 @@ public:
     void read_buf();
     Result get_request(std::vector<std::string> &req);
     void parse();
+    bool empty();
 
 };
 
