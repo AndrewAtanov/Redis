@@ -5,11 +5,16 @@
 redis_api::redis_api(std::string file):    
     log_name(file) {
     std::ifstream get_data(file.c_str());
+    std::string time_log_name = log_name + "_time";
+    std::fstream get_time_log(time_log_name);
     read_map_from(data, get_data);
+    read_time_log(key_time, get_time_log);
     get_data.close();
+    get_time_log.close();
 
     log.open(file.c_str(), std::ios::out | std::ios::in);
     change_log.open("change_log", std::ios::in | std::ios::out);
+    change_time_log.open("change_time_log", std::ios::in | std::ios::out);
 
     apply_change_to_log();
 }
@@ -50,12 +55,17 @@ void redis_api::upd_change_log() {
         return;
 
     write_map_to(change_map, change_log);
+    write_time_log(change_time, change_time_log);
+
     change_map.clear();
+    change_time_log.clear();
 }
 
 void redis_api::apply_change_to_log() {
     read_map_from(data, change_log);
+    read_time_log(key_time, change_time_log);
     apply_deleted();
+
     std::ofstream tmp_log("tmp_log");
     write_map_to(data, tmp_log);
     std::string comand = "cp tmp_log " + log_name;
@@ -63,8 +73,20 @@ void redis_api::apply_change_to_log() {
     comand = "rm tmp_log";
     system(comand.c_str());
 
+    std::ofstream tmp_time_log("tmp_time_log");
+    write_time_log(key_time, tmp_time_log);
+    comand = "cp tmp_time_log " + log_name + "_time";
+    system(comand.c_str());
+    comand = "rm tmp_time_log";
+    system(comand.c_str());
+
+
     change_log.close();
+    change_time_log.close();
+
     change_log.open("change_log", std::ios::in | std::ios::out | std::ios::trunc);
+    change_time_log.open("change_time_log", std::ios::in | std::ios::out | std::ios::trunc);
+
 }
 
 void redis_api::read_map_from(std::unordered_map<std::string, std::string>& map, std::istream &in) {
@@ -78,6 +100,18 @@ void redis_api::write_map_to(std::unordered_map<std::string, std::string>& map, 
         out << record.first << '\t' << record.second << std::endl;
 }
 
+void redis_api::read_time_log(std::unordered_map<std::string, std::pair<time_t, time_t> >& map, std::istream& in) {
+    std::string key;
+    time_t start, time;
+    while (in >> key >> start >> time) {
+        map[key] = {start, time};
+    }
+}
+
+void redis_api::write_time_log(std::unordered_map<std::string, std::pair<time_t, time_t> > &map, std::ostream &out) {
+    for (auto record : map)
+        out << record.first << "\t" << record.second.first << "\t" << record.second.second << std::endl;
+}
 void redis_api::show_map(std::ostream &out) {
     write_map_to(data, out);
 }

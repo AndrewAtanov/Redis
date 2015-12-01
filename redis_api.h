@@ -10,9 +10,9 @@
 class redis_api {
 private:
     std::unordered_map<std::string, std::string> data, change_map;
-    std::fstream log, change_log;
+    std::fstream log, change_log, time_log, change_time_log;
     std::string log_name;
-    std::unordered_map<std::string, std::pair<time_t, time_t>> key_time;
+    std::unordered_map<std::string, std::pair<time_t, time_t>> key_time, change_time;
     std::set<std::string> deleted;
 
     void read_map_from(std::unordered_map<std::string, std::string>& map, std::istream& in);
@@ -21,6 +21,9 @@ private:
     void apply_change_to_log();
     void delete_key(std::string key);
     void apply_deleted();
+
+    void read_time_log(std::unordered_map<std::string, std::pair<time_t, time_t>>& map, std::istream& in);
+    void write_time_log(std::unordered_map<std::string, std::pair<time_t, time_t>>& mpa, std::ostream& out);
 
 public:
     explicit redis_api(std::string file);
