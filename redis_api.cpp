@@ -54,6 +54,11 @@ void redis_api::upd_change_log() {
     if (change_map.empty())
         return;
 
+    change_log.close();
+    change_log.open("change_log", std::ios::in | std::ios::out);
+    read_map_from(change_map, change_log);
+    change_log.close();
+    change_log.open("change_log", std::ios::in | std::ios::out);
     write_map_to(change_map, change_log);
     write_time_log(change_time, change_time_log);
 
@@ -90,14 +95,24 @@ void redis_api::apply_change_to_log() {
 }
 
 void redis_api::read_map_from(std::unordered_map<std::string, std::string>& map, std::istream &in) {
-    std::string key, value;
-    while (in >> key >> value)
-        map[key] = value;
+    int len;
+    if (!in.read((char*)&len, sizeof(len)))
+        return;
+//    std::string key, value;
+    while (len-->0) {
+        std::string key = read_string(in);
+        map[key] = read_string(in);
+    }
 }
 
 void redis_api::write_map_to(std::unordered_map<std::string, std::string>& map, std::ostream& out) {
-    for (auto record: map)
-        out << record.first << '\t' << record.second << std::endl;
+    int len = map.size();
+    out.write((char*)&len, sizeof(len));
+    for (auto record: map) {
+        write_string(record.first, out);
+        write_string(record.second, out);
+//        out << record.first << '\t' << record.second << std::endl;
+    }
 }
 
 void redis_api::read_time_log(std::unordered_map<std::string, std::pair<time_t, time_t> >& map, std::istream& in) {
@@ -147,4 +162,22 @@ void redis_api::apply_deleted() {
     for (auto key : deleted) {
         delete_key(key);
     }
+}
+
+void redis_api::write_string(const std::string& str, std::ostream& out) {
+    int len = str.size();
+    out.write((char*)&len, sizeof(len));
+    out.write(str.c_str(), len);
+    out.flush();
+}
+
+std::string redis_api::read_string(std::istream& in) {
+    int len;
+    in.read((char*)&len, sizeof(len));
+    char *buff = new char[len + 1];
+    in.read(buff, len);
+    buff[len] = '\0';
+    std::string res(buff);
+    delete[] buff;
+    return res;
 }

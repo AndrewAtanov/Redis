@@ -21,6 +21,8 @@ private:
     void apply_change_to_log();
     void delete_key(std::string key);
     void apply_deleted();
+    void write_string(const std::string &str, std::ostream &out);
+    std::string read_string(std::istream& in);
 
     void read_time_log(std::unordered_map<std::string, std::pair<time_t, time_t>>& map, std::istream& in);
     void write_time_log(std::unordered_map<std::string, std::pair<time_t, time_t>>& mpa, std::ostream& out);
