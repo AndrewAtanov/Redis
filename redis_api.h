@@ -14,6 +14,7 @@ private:
     std::string log_name;
     std::unordered_map<std::string, std::pair<time_t, time_t>> key_time, change_time;
     std::set<std::string> deleted;
+    int d_log, d_change_log;
 
     void read_map_from(std::unordered_map<std::string, std::string>& map, std::istream& in);
     void write_map_to(std::unordered_map<std::string, std::string>& map, std::ostream& out);
@@ -22,7 +23,8 @@ private:
     void delete_key(std::string key);
     void apply_deleted();
     void write_string(const std::string &str, std::ostream &out);
-    std::string read_string(std::istream& in);
+    bool read_string(std::istream& in, std::string& str);
+    bool full_read(int fd, char* buf, size_t len);
 
     void read_time_log(std::unordered_map<std::string, std::pair<time_t, time_t>>& map, std::istream& in);
     void write_time_log(std::unordered_map<std::string, std::pair<time_t, time_t>>& mpa, std::ostream& out);

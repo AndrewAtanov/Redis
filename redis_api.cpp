@@ -12,8 +12,8 @@ redis_api::redis_api(std::string file):
     get_data.close();
     get_time_log.close();
 
-    log.open(file.c_str(), std::ios::out | std::ios::in);
-    change_log.open("change_log", std::ios::in | std::ios::out);
+    log.open(file.c_str(), std::ios::out | std::ios::in | std::ios::binary);
+//    change_log.open("change_log", std::ios::in | std::ios::out | std::ios::binary);
     change_time_log.open("change_time_log", std::ios::in | std::ios::out);
 
     apply_change_to_log();
@@ -54,19 +54,20 @@ void redis_api::upd_change_log() {
     if (change_map.empty())
         return;
 
-    change_log.close();
-    change_log.open("change_log", std::ios::in | std::ios::out);
-    read_map_from(change_map, change_log);
-    change_log.close();
-    change_log.open("change_log", std::ios::in | std::ios::out);
+    change_log.open("change_log", std::ios::out | std::ios::app | std::ios::binary);
     write_map_to(change_map, change_log);
+    change_log.close();
+
+    change_time_log.open("change_time_log", std::ios::out | std::ios::app | std::ios::binary);
     write_time_log(change_time, change_time_log);
+    change_time_log.close();
 
     change_map.clear();
     change_time_log.clear();
 }
 
 void redis_api::apply_change_to_log() {
+    change_log.open("change_log", std::ios::in | std::ios::binary);
     read_map_from(data, change_log);
     read_time_log(key_time, change_time_log);
     apply_deleted();
@@ -95,23 +96,20 @@ void redis_api::apply_change_to_log() {
 }
 
 void redis_api::read_map_from(std::unordered_map<std::string, std::string>& map, std::istream &in) {
-    int len;
-    if (!in.read((char*)&len, sizeof(len)))
-        return;
-//    std::string key, value;
-    while (len-->0) {
-        std::string key = read_string(in);
-        map[key] = read_string(in);
+    std::string key, val;
+    while (read_string(in, key)) {
+        if (!read_string(in, val))
+            return;
+        map[key] = val;
+        key.clear();
+        val.clear();
     }
 }
 
 void redis_api::write_map_to(std::unordered_map<std::string, std::string>& map, std::ostream& out) {
-    int len = map.size();
-    out.write((char*)&len, sizeof(len));
     for (auto record: map) {
         write_string(record.first, out);
         write_string(record.second, out);
-//        out << record.first << '\t' << record.second << std::endl;
     }
 }
 
@@ -141,6 +139,7 @@ std::string redis_api::set(std::string key, std::string value, time_t time) {
     change_map.insert({key, value});
 
     key_time[key] = {std::time(0), time};
+    change_time[key] = {std::time(0), time};
 
     return "OK";
 }
@@ -156,6 +155,7 @@ void redis_api::delete_key(std::string key) {
     data.erase(key);
     key_time.erase(key);
     change_map.erase(key);
+    change_time.erase(key);
 }
 
 void redis_api::apply_deleted() {
@@ -171,13 +171,18 @@ void redis_api::write_string(const std::string& str, std::ostream& out) {
     out.flush();
 }
 
-std::string redis_api::read_string(std::istream& in) {
+bool redis_api::read_string(std::istream& in, std::string& str) {
     int len;
     in.read((char*)&len, sizeof(len));
-    char *buff = new char[len + 1];
+    if (!in)
+        return false;
+    char *buff = new char[len];
     in.read(buff, len);
-    buff[len] = '\0';
-    std::string res(buff);
+    if (!in)
+        return false;
+    for (int i = 0; i < len; ++i)
+        str.push_back(buff[i]);
     delete[] buff;
-    return res;
+    return true;
 }
+

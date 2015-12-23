@@ -8,18 +8,6 @@
 #include "redis_server.h"
 
 int main(int argc, char *argv[]) {
-
-//    std::fstream f("test");
-//    int len = 12;
-//    f.write((char*)&len, sizeof(len));
-//    f.flush();
-//    f.close();
-//    f.open("test");
-//    f.seekp(0);
-//    len = 1324;
-//    f.write((char*)&len, sizeof(len));
-//    f.flush();
-
     char log[] = "log";
     char *data = log;
     if (argc != 1)
