@@ -112,8 +112,8 @@ std::string Redis_server::process_request(std::vector<std::string> &req_arr) {
         if (req_arr.size() == 3) {
             std::string ans = redis->set(req_arr[1], req_arr[2]);
             string_to_req(ans, resp);
-        } else if (req_arr.size() == 4) {
-            std::string ans = redis->set(req_arr[1], req_arr[2], std::stoull(req_arr[3]));
+        } else if (req_arr.size() == 5 && req_arr[3] == "EX") {
+            std::string ans = redis->set(req_arr[1], req_arr[2], std::stoull(req_arr[4]));
             string_to_req(ans, resp);
         }
     } else if (req_arr[0] == "GET") {

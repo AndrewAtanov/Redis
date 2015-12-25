@@ -38,7 +38,7 @@ std::string redis_api::set(std::string key, std::string value) {
 }
 
 std::string redis_api::get(std::string key) {
-    std::string ans = "No such value";
+    std::string ans = "$-1\r\n";
     auto it = data.find(key);
     if (it != data.end()) {
         if (valid_key(key))
