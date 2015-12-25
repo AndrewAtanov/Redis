@@ -6,17 +6,14 @@
 #include <sys/socket.h>
 #include <vector>
 #include <map>
-#include <boost/function.hpp>
-#include <boost/lambda/bind.hpp>
-
 
 class Client_State {
     enum State {Start, Arr, String, String_Length, Arr_Length, Error_State, Ok_State, Refuse};
     typedef void (*SomeFunction)(void);
-    typedef std::map<int, boost::function<void(void)>> script_map;
+//    typedef std::map<int, boost::function<void(void)>> script_map;
 
 private:
-    script_map state_fun;
+//    script_map state_fun;
     std::vector<std::string> arr;
     std::deque<char> buf;
     State state;
