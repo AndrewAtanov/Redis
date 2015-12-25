@@ -107,7 +107,7 @@ int Redis_server::get_requests() {
 }
 
 std::string Redis_server::process_request(std::vector<std::string> &req_arr) {
-    std::string resp = "break";
+    std::string resp = "$-1\r\n";
     if (req_arr[0] == "SET") {
         if (req_arr.size() == 3) {
             std::string ans = redis->set(req_arr[1], req_arr[2]);
@@ -118,8 +118,9 @@ std::string Redis_server::process_request(std::vector<std::string> &req_arr) {
         }
     } else if (req_arr[0] == "GET") {
         if (req_arr.size() == 2) {
-            std::string ans = redis->get(req_arr[1]);
-            string_to_req(ans, resp);
+            std::string ans;
+            if (redis->get(req_arr[1], ans))
+                string_to_req(ans, resp);
         }
     } else if (req_arr[0] == "show") {
         std::string ans = "NO";

@@ -37,7 +37,7 @@ public:
 
     std::string set(std::string key, std::string value);
     std::string set(std::string key, std::string value, time_t time);
-    std::string get(std::string key);
+    bool get(std::string key, std::string &res);
     void show_map(std::ostream&);
     void save_chng();
     bool valid_key(std::string key);

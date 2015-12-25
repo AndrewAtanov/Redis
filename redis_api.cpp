@@ -37,17 +37,18 @@ std::string redis_api::set(std::string key, std::string value) {
     return "OK";
 }
 
-std::string redis_api::get(std::string key) {
-    std::string ans = "$-1\r\n";
+bool redis_api::get(std::string key, std::string& res) {
     auto it = data.find(key);
     if (it != data.end()) {
-        if (valid_key(key))
-            ans = data[key];
-        else
+        if (valid_key(key)) {
+            res = data[key];
+            return true;
+        } else {
             delete_key(key);
+        }
     }
 
-    return ans;
+    return false;
 }
 
 void redis_api::upd_change_log() {
